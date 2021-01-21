@@ -1,80 +1,116 @@
 const socket = io()
-//ELEMENTS
-const $form = document.querySelector("#message-form")
-const $msgBar = document.querySelector("#messageBar")
-const $msgBtn = document.querySelector("#submitButton")
-const $renderMsg = document.querySelector("#messages")
 
+// Elements
+const $messageForm = document.querySelector('#message-form')
+const $messageFormInput = $messageForm.querySelector('input')
+const $messageFormButton = $messageForm.querySelector('button')
+const $sendLocationButton = document.querySelector('#send-location')
+const $messages = document.querySelector('#messages')
+const $selectedRoomName = document.querySelector('#roonName')
 
-//TEMPLATES
-const msgTemplate = document.querySelector("#message-script").innerHTML
-const locationTemplate = document.querySelector("#location-script").innerHTML
+// Templates
+const messageTemplate = document.querySelector('#message-template').innerHTML
+const locationMessageTemplate = document.querySelector('#location-message-template').innerHTML
+const sidebarTemplate = document.querySelector('#sidebar-template').innerHTML
 
-//JOIN
-const {username,room} = Qs.parse(location.search,{ignoreQueryPrefix:true})
-console.log(username)
+// Options
+const { username, room } = Qs.parse(location.search, { ignoreQueryPrefix: true })
 
+const autoscroll = () => {
+    // New message element
+    const $newMessage = $messages.lastElementChild
 
-socket.on('counterUpdated',(count)=>{
-  console.log("UPDATE COUNT" + count)
-})
-socket.on('message',(message)=>{
-  const html = Mustache.render(msgTemplate,{
-    msg:message.text,
-  createdOn:moment(message.created_On).format('h:mm a')
-})
-  $renderMsg.insertAdjacentHTML('beforeend',html)
-})
-// socket.on('recievedMsg',(msg)=>{
-//   console.log("New Message Found " + msg)
-// })
-socket.on('sentlocation',(locationObj)=>{
-  //const url = "https://google.com/maps?q=" + lat + "," + long;
-  const locationhtml = Mustache.render(locationTemplate,{
-    url:locationObj.url,
-  createdOn:moment(locationObj.created_On).format('h:mm a')
-})
-  console.log(locationhtml)
-  $renderMsg.insertAdjacentHTML('beforeend',locationhtml)
-//  console.log("https://google.com/maps?q=" + lat + "," + long)
+    // Height of the new message
+    const newMessageStyles = getComputedStyle($newMessage)
+    const newMessageMargin = parseInt(newMessageStyles.marginBottom)
+    const newMessageHeight = $newMessage.offsetHeight + newMessageMargin
 
-  //console.log("https://google.com/maps?q=" + lat + "," + long)
-})
-// document.querySelector("#increment").addEventListener('click',()=>{
-//   socket.emit('increment')
-// })
+    // Visible height
+    const visibleHeight = $messages.offsetHeight
 
-$form.addEventListener('submit',(e)=>{
- e.preventDefault()
- $msgBtn.setAttribute('disabled','disabled')
- const msg = e.target.elements.messageBar.value
-  if(msg!=null){
-  socket.emit('sentMsg',msg,()=>{
-    $msgBtn.removeAttribute('disabled')
-    $msgBar.focus()
-    $msgBar.value =''
+    // Height of messages container
+    const containerHeight = $messages.scrollHeight
 
-console.log("VERY  COOOOL")
-  })
-  }
-})
+    // How far have I scrolled?
+    const scrollOffset = $messages.scrollTop + visibleHeight
 
-document.querySelector("#send-location").addEventListener("click",()=>{
-  if(!navigator.geolocation){
+    if (containerHeight - newMessageHeight <= scrollOffset) {
+        $messages.scrollTop = $messages.scrollHeight
+    }
+}
 
-    return alert("Geolocation not supported by your browser");
-  }
-  document.querySelector("#send-location").setAttribute('disabled','disabled')
-
-  navigator.geolocation.getCurrentPosition((position)=>{
-    //console.log(position)
-    socket.emit('sentlocation',{lat : position.coords.latitude,long:position.coords.longitude},()=>{
-      document.querySelector("#send-location").removeAttribute('disabled')
-
-console.log("location shared!!")
+socket.on('message', (message) => {
+    console.log(message)
+    const html = Mustache.render(messageTemplate, {
+        username: message.username,
+        message: message.text,
+        createdAt: moment(message.createdAt).format('h:mm a')
     })
-
-  })
+    $messages.insertAdjacentHTML('beforeend', html)
+    autoscroll()
 })
 
-socket.emit("joined",{username,room})
+socket.on('locationMessage', (message) => {
+    console.log(message)
+    const html = Mustache.render(locationMessageTemplate, {
+        username: message.username,
+        url: message.url,
+        createdAt: moment(message.createdAt).format('h:mm a')
+    })
+    $messages.insertAdjacentHTML('beforeend', html)
+    autoscroll()
+})
+
+socket.on('roomData', ({ room, users }) => {
+    const html = Mustache.render(sidebarTemplate, {
+        room,
+        users
+    })
+    document.querySelector('#sidebar').innerHTML = html
+})
+
+$messageForm.addEventListener('submit', (e) => {
+    e.preventDefault()
+
+    $messageFormButton.setAttribute('disabled', 'disabled')
+
+    const message = e.target.elements.message.value
+    console.log("hello brother")
+    const givenRoomName = selectedRoomName.innerHTML
+    socket.emit('sendMessage', message,givenRoomName, (error) => {
+        $messageFormButton.removeAttribute('disabled')
+        console.log("hello brother-2")
+        $messageFormInput.value = ''
+        $messageFormInput.focus()
+        if (error) {
+          console.log("hello brother-2")
+            return console.log(error)
+        }
+        console.log('Message delivered!')
+    })
+})
+
+$sendLocationButton.addEventListener('click', () => {
+    if (!navigator.geolocation) {
+        return alert('Geolocation is not supported by your browser.')
+    }
+
+    $sendLocationButton.setAttribute('disabled', 'disabled')
+
+    navigator.geolocation.getCurrentPosition((position) => {
+        socket.emit('sendLocation', {
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude
+        }, () => {
+            $sendLocationButton.removeAttribute('disabled')
+            console.log('Location shared!')
+        })
+    })
+})
+
+socket.emit('join', { username, room }, (error) => {
+    if (error) {
+        alert(error)
+        location.href = '/'
+    }
+})
