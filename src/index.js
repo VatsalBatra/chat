@@ -3,7 +3,7 @@ const http = require('http')
 const express = require('express')
 const socketio = require('socket.io')
 const { generateMessage, generateLocationMessage } = require('./utils/message.js')
-const { addUser, removeUser, getUserByid, getUsersInRoom } = require('./utils/userBase.js')
+const { addUser, removeUser, getUserByid, getUsersInRoom ,addRoomMsg} = require('./utils/userBase.js')
 // const MongoClient = require('mongodb').MongoClient;
 //const client = require('socket.io').listen(4000).sockets;
 var MongoClient = require('mongodb').MongoClient;
@@ -19,7 +19,13 @@ var user = new mongoose.Schema({
  room: String,
  id:String
 });
-
+var RoomMsg = new mongoose.Schema({
+  username:String,
+  room:String,
+  message:String,
+  createdOn:String
+})
+let messageBase = mongoose.model("message",RoomMsg)
 let UserBase = mongoose.model("User", user);
 const app = express()
 const server = http.createServer(app)
@@ -51,16 +57,16 @@ MongoClient.connect(url,(err, client) => {
 console.log('MongoDB connected...');
 
 io.on('connection', (socket) => {
-    console.log('New WebSocket connection')
+    //console.log('New WebSocket connection')
     let database = client.db('chatRoom');
-    console.log("HERE IS THE DATABASE")
+  //  console.log("HERE IS THE DATABASE")
   //  console.log(database.collection("user"))
     socket.on('join', ({username,room}, callback) => {
-    //  let a = []
-       database.collection('users').find(room).toArray(function(err, chatRoomUser){
-         console.log(chatRoomUser)
+      var chatRoomUser=[];
+       database.collection('users').find({room :room}).toArray(function(err, chatRoomUser){
+  //       console.log(chatRoomUser)
         const { error, user } = addUser({id: socket.id,chatRoomUser,username,room})
-console.log("HAPPY BIRTHDSY")
+//console.log("HAPPY BIRTHDSY")
         if (error) {
             return callback(error)
         }
@@ -70,9 +76,13 @@ console.log("HAPPY BIRTHDSY")
         chatMessage.save();
         socket.emit('message', generateMessage('Admin', 'Welcome!'))
         socket.broadcast.to(user.room).emit('message', generateMessage('Admin', `${user.username} has joined!`))
+        console.log(chatRoomUser)
+    //    console.log(room)
+        chatRoomUser.push(user)
+        console.log("PARTY")
         io.to(user.room).emit('roomData', {
             room: user.room,
-            users: getUsersInRoom(user.room)
+            users: chatRoomUser
         })
 
         callback()
@@ -80,11 +90,19 @@ console.log("HAPPY BIRTHDSY")
 
     })
 
-    socket.on('sendMessage', (message, callback) => {
-        const user = getUserByid(socket.id)
+    socket.on('sendMessage', (createdOn,message, callback) => {
+      database.collection('users').find(socket.id).toArray(function(err, chatRoomUser){
 
+        const user = getUserByid(chatRoomUser,socket.id)
+        // console.log("RROOOOMMMM ISSS SSS");
+        // console.log(user)
+        // console.log({username : user.username,message : message,room:user.room})
+
+        const msgObj = addRoomMsg({username : user.username,message : message,room:user.room,createdOn:createdOn})
+        addMessageToDb(client, msgObj)
         io.to(user.room).emit('message', generateMessage(user.username, message))
         callback()
+      })
     })
 
     socket.on('sendLocation', (coords, callback) => {
@@ -95,19 +113,22 @@ console.log("HAPPY BIRTHDSY")
 
     socket.on('disconnect', () => {
       database.collection('users').find(socket.id).toArray(function(err, chatRoomUser){
-        console.log(chatRoomUser)
+    //    console.log(chatRoomUser)
         const user = removeUser(socket.id,chatRoomUser)
         if (user) {
-          console.log(chatRoomUser)
-          console.log("USER IS:")
-          console.log(user)
+          // console.log(chatRoomUser)
+          // console.log("USER IS:")
+          // console.log(user)
           deleteListingByName(client,user)
-          console.log(chatRoomUser)
+        //  console.log(chatRoomUser)
             io.to(user.room).emit('message', generateMessage('Admin', `${user.username} has left!`))
+            database.collection('users').find(user.room).toArray(function(err, remainingChatRoomUser){
+//console.log(remainingChatRoomUser)
             io.to(user.room).emit('roomData', {
                 room: user.room,
-                users: getUsersInRoom(user.room)
+                users: remainingChatRoomUser
             })
+          })
         }
 
       })
@@ -122,4 +143,12 @@ async function deleteListingByName(client, nameOfListing) {
     result = await client.db("chatRoom").collection("users")
          .deleteOne({ room : nameOfListing.room,username : nameOfListing.username});
     console.log(`${result.deletedCount} document(s) was/were deleted.`);
+}
+//keep rendering message as it is but when a new user join use mongodb backup to populate older messages and if all ppl leave the group delete the entry from mongo db
+ function addMessageToDb(client, msgObj) {
+    result = client.db("chatRoom").collection("RoomMsg")
+    let  chatMessageString  =  new messageBase(msgObj);
+    chatMessageString.save();
+
+    console.log(`addedChat message to db.`);
 }

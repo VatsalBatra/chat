@@ -5,19 +5,16 @@ mongoose.Promise  = require("bluebird");
 const  url  =  "mongodb://localhost:27017/chat";
 //const  connect  =  mongoose.connect(url, { useNewUrlParser: true, seUnifiedTopology: true });
 var user = new mongoose.Schema({
+ username: String,
  room: String,
- username:{
-   'type': {type: String},
-   			'value': [String]
- },
  id:String
 });
 
 var RoomMsg = new mongoose.Schema({
   username:String,
-  room: String,
-  message:String
-
+  room:String,
+  message:String,
+  createdOn:String
 })
 // let UserBase = mongoose.model("User", user);
 
@@ -26,21 +23,29 @@ var RoomMsg = new mongoose.Schema({
 //FETCH USER
 //user in rooms
 const removeUser = ((id,chatRoomUsers)=>{
-  console.log("CHATROOM USERS ARE")
-  console.log(chatRoomUsers)
+  // console.log("CHATROOM USERS ARE")
+  // console.log(chatRoomUsers)
   const toBeRomvedUser = chatRoomUsers.find((user)=>user.id==id)
   if(toBeRomvedUser!=null){
-    console.log("FOUND SOMEBODY")
+    //console.log("FOUND SOMEBODY")
     return toBeRomvedUser;
   }
 })
+const addRoomMsg = ({username,createdOn,message,room})=>{
+  if(username!=null &&createdOn!=null && message!=null && room!=null){
+ const roomMessage = {username,createdOn,message,room}
+    return{
+      roomMessage
+    }
+  }
+}
 const addUser = ({id,chatRoomUser, username, room}) => {
     // Clean the data
     // username = username.trim().toLowerCase();
     // room = room.trim().toLowerCase();
-    console.log("HEELP")
-    console.log(chatRoomUser)
-    console.log("HEELP2313")
+    // console.log("HEELP")
+    // console.log(chatRoomUser)
+    // console.log("HEELP2313")
 
   if(!username ||!room){
     return{
@@ -48,8 +53,8 @@ const addUser = ({id,chatRoomUser, username, room}) => {
     }
   }
 if(chatRoomUser!=null){
-  const exsitingRoom = chatRoomUser.forEach(user).function(user)=>{
-    return user.room === room && user.username === username}
+  const exsitingRoom = chatRoomUser.find((user)=>{
+    return user.room === room && user.username === username})
   if(exsitingRoom){
     return {
       error:"Already present user/room"
@@ -70,27 +75,26 @@ if(chatRoomUser!=null){
 // })
 
  const user = {id,username,room}
- users.push(user)
  return{
    user
  }
 }
-const addUserAndMsgData=(({room,message})=>{
 
+
+const getUserByid = ((getUserByid,id)=>{
+return getUserByid.find((user)=>user.id ===id)
+})
+const getUsersInRoom = ((getUsersInRoom,room)=>{
+
+  return  getUsersInRoom.filter((user)=>user.room === room)
 })
 
-const getUserByid = ((id)=>{
-return users.find((user)=>user.id ===id)
-})
-const getUsersInRoom = ((room)=>{
-
-  return  users.filter((user)=>user.room === room)
-})
 module.exports={
   getUserByid,
   getUsersInRoom,
   addUser,
-  removeUser
+  removeUser,
+  addRoomMsg
 }
 // addUser({
 //   id:22,

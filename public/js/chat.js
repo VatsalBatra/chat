@@ -6,7 +6,6 @@ const $messageFormInput = $messageForm.querySelector('input')
 const $messageFormButton = $messageForm.querySelector('button')
 const $sendLocationButton = document.querySelector('#send-location')
 const $messages = document.querySelector('#messages')
-const $selectedRoomName = document.querySelector('#roonName')
 
 // Templates
 const messageTemplate = document.querySelector('#message-template').innerHTML
@@ -40,7 +39,7 @@ const autoscroll = () => {
 }
 
 socket.on('message', (message) => {
-    console.log(message)
+  //  console.log(message)
     const html = Mustache.render(messageTemplate, {
         username: message.username,
         message: message.text,
@@ -51,7 +50,7 @@ socket.on('message', (message) => {
 })
 
 socket.on('locationMessage', (message) => {
-    console.log(message)
+  //  console.log(message)
     const html = Mustache.render(locationMessageTemplate, {
         username: message.username,
         url: message.url,
@@ -62,6 +61,8 @@ socket.on('locationMessage', (message) => {
 })
 
 socket.on('roomData', ({ room, users }) => {
+  console.log("CHAT.JS")
+  console.log(users);
     const html = Mustache.render(sidebarTemplate, {
         room,
         users
@@ -75,15 +76,15 @@ $messageForm.addEventListener('submit', (e) => {
     $messageFormButton.setAttribute('disabled', 'disabled')
 
     const message = e.target.elements.message.value
-    console.log("hello brother")
-    const givenRoomName = selectedRoomName.innerHTML
-    socket.emit('sendMessage', message,givenRoomName, (error) => {
+    createdOn =  moment(message.createdAt).format('h:mm a')
+
+    socket.emit('sendMessage',createdOn, message, (error) => {
         $messageFormButton.removeAttribute('disabled')
-        console.log("hello brother-2")
+      //  console.log("hello brother-2")
         $messageFormInput.value = ''
         $messageFormInput.focus()
         if (error) {
-          console.log("hello brother-2")
+      //    console.log("hello brother-2")
             return console.log(error)
         }
         console.log('Message delivered!')
