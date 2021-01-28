@@ -14,7 +14,7 @@ var RoomMsg = new mongoose.Schema({
   username:String,
   room:String,
   message:String,
-  createdOn:String
+//  createdOn:String
 })
 // let UserBase = mongoose.model("User", user);
 
@@ -31,9 +31,9 @@ const removeUser = ((id,chatRoomUsers)=>{
     return toBeRomvedUser;
   }
 })
-const addRoomMsg = ({username,createdOn,message,room})=>{
-  if(username!=null &&createdOn!=null && message!=null && room!=null){
- const roomMessage = {username,createdOn,message,room}
+const addRoomMsg = ({username,message,room})=>{
+  if(username!=null && message!=null && room!=null){
+ const roomMessage = {username,message,room}
     return{
       roomMessage
     }
@@ -49,7 +49,7 @@ const addUser = ({id,chatRoomUser, username, room}) => {
 
   if(!username ||!room){
     return{
-      error:"empty username / room"
+      error:"empty username / room" //TODO : WRONG  CONDITION
     }
   }
 if(chatRoomUser!=null){
@@ -84,7 +84,7 @@ if(chatRoomUser!=null){
 const getUserByid = ((getUserByid,id)=>{
 return getUserByid.find((user)=>user.id ===id)
 })
-const getUsersInRoom = ((getUsersInRoom,room)=>{
+const getUsersInRoom = ((getUsersInRoom)=>{
 
   return  getUsersInRoom.filter((user)=>user.room === room)
 })
