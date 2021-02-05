@@ -4,33 +4,37 @@ const express = require('express')
 const socketio = require('socket.io')
 const { generateMessage, generateLocationMessage } = require('./utils/message.js')
 const { addUser, removeUser, getUserByid, getUsersInRoom ,addRoomMsg} = require('./utils/userBase.js')
+const passport = require('passport');
+
 // const MongoClient = require('mongodb').MongoClient;
 //const client = require('socket.io').listen(4000).sockets;
 var MongoClient = require('mongodb').MongoClient;
 const  mongoose  = require("mongoose");
 mongoose.Promise  = require("bluebird");
-const  url  =  "mongodb://localhost:27017/chatRoom";
-const  connect  =  mongoose.connect(url, { useNewUrlParser: true  });
+const  url  =  "mongodb://localhost:27017/ChatRoom";
+const  connect  =  mongoose.connect(url, { useNewUrlParser: true ,useUnifiedTopology: true });
+
 //
 // const  mongoose  = require("mongoose");
 // mongoose.Promise  = require("bluebird");
 var user = new mongoose.Schema({
  username: String,
- // usernameList[{
-    username : String,
-     // }]
- room: String,
+ password: String, //TODO :MAKE THIS HIDDEN >>>>>GOOGLE IT
+ joinedOn :String,
  id:String
 
 });
-var message = new mongoose.Schema({
-  username:String,
-  room:String,
-  message:String,
+var chat = new mongoose.Schema({
+  id:String,
+  msgString:String,
+  username : String,
+  createdAt : String
+
   //createdOn:String
 })
-let UserBase = mongoose.model("User", user);
-let MessageBase = mongoose.model("message",message);
+
+let UserBase = mongoose.model("user", user);
+let MessageBase = mongoose.model("chat",chat);
 
 const app = express()
 const server = http.createServer(app)
@@ -40,72 +44,65 @@ const port = process.env.PORT || 3000
 const publicDirectoryPath = path.join(__dirname, '../public')
 
 app.use(express.static(publicDirectoryPath))
-// MongoClient.connect(url,(err, client) => {
-//     if(err) throw err;
-//
-//     let database = client.db('chatRoom');
-//
-//     database.collection('users').find()
-//     .toArray((err, results) => {
-//         if(err) throw err;
-//
-//         results.forEach((value)=>{
-//             console.log(value.name);
-//         });
-//     })
-// })
+server.listen(port, () => {
+    console.log(`Server is up on port ${port}!`)
+})
 MongoClient.connect(url,(err, client) => {
     if(err){
         throw err;
     }
 
 console.log('MongoDB connected...');
+const bodyParser = require('body-parser');
+const expressSession = require('express-session')({
+  secret: 'secret',
+  resave: false,
+  saveUninitialized: false
+});
+
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: true }));
+app.use(expressSession);
+
+app.use(passport.initialize());
+app.use(passport.session());
+const passportLocalMongoose = require('passport-local-mongoose');
+user.plugin(passportLocalMongoose);
+
+passport.use(user.createStrategy());
+
+passport.serializeUser(user.serializeUser());
+passport.deserializeUser(user.deserializeUser());
 
 io.on('connection', (socket) => {
     //console.log('New WebSocket connection')
-    let database = client.db('chatRoom');
-  //  console.log("HERE IS THE DATABASE")
-  //  console.log(database.collection("user"))
-    socket.on('join',({username,room}, callback) => {
+    let database = client.db('ChatRoom');
+    socket.on('join',({username,password}, callback) => {
       var chatRoomUser=[];
-       database.collection('users').find({room :room}).toArray(async function(err, chatRoomUser){
-         console.log(chatRoomUser)
-        const { error, user } = addUser({id: socket.id,chatRoomUser,username,room})
-        console.log("HAPPY BIRTHDSY")
-        if (error) {
-          console.log("HELLO BROTHER KASIA HAI")
-          var chatRoomMessages = []
-
-          // client.db("chatRoom").collection("messages").find({room :room}).toArray(function(err, chatRoomUser){
-          //   //send messages to the front
-          //   var chatRoomMessages = chatRoomUser
-          //
-          // })
-          let chatRoomMessages2 = []
-          console.log('GOLO00000000')
-
-      chatRoomMessages2 = await retrieveOldMessages(client,room)
-
-           console.log('GOLO')
-           console.log(chatRoomMessages2)
-          return callback(chatRoomMessages2);
-
-
+       database.collection('users').find().toArray(async function(err, chatRoomUser){
+console.log(chatRoomUser)
+        const { error,newUser } = addUser({id: socket.id,chatRoomUser,username,password})
+        if(error){
+          if(error === "Wrong Password")
+          return callback({
+          error:"WRONG ID_PASSWORD"});
+          callback("wrong password")
+          if (existingUser) {
+            console.log("existingUser")
+            let chatRoomMessages = []
+        chatRoomMessages2 = await retrieveOldMessages(client,existingUser)
+             console.log(chatRoomMessages2)
+            return callback(chatRoomMessages2);
+          }
         }
-
-        // console.log('KE GOGGLES')
-
-        socket.join(user.room)
-        let  chatMessage  =  new UserBase(user);
+        console.log("ADDED NEW USER")
+        let  chatMessage  =  new UserBase(newUser);
         chatMessage.save();
         socket.emit('message', generateMessage('Admin', 'Welcome!'))
-        socket.broadcast.to(user.room).emit('message', generateMessage('Admin', `${user.username} has joined!`))
-      //  console.log(chatRoomUser)
-    //    console.log(room)
+        socket.broadcast.to(user.room).emit('message', generateMessage( `${user.username} has joined to Chat Room!`))
         chatRoomUser.push(user)
-        console.log("PARTY")
-        io.to(user.room).emit('roomData', {
-            room: user.room,
+        io.emit('roomData', {
+            room: "CHAT ROOM",
             users: chatRoomUser
         })
 
@@ -116,43 +113,34 @@ io.on('connection', (socket) => {
 
     socket.on('sendMessage', (createdOn,message, callback) => {
       database.collection('users').find(socket.id).toArray(function(err, chatRoomUser){
-
-        const user = getUserByid(chatRoomUser,socket.id)
-        // console.log("RROOOOMMMM ISSS SSS");
-        // console.log(user)
-        // console.log({username : user.username,message : message,room:user.room})
-
-    //    const msgObj = addRoomMsg({username : user.username,message : message,room:user.room})
-        let  chatMessageString  =  new MessageBase( {username:user.username,
+        console.log(chatRoomUser)
+              let  chatMessageString  =  new MessageBase( {username:user.username,
           room:user.room,
           message:message});
         chatMessageString.save();
-        // addMessageToDb(client, msgObj)
-        io.to(user.room).emit('message', generateMessage(user.username, message))
+        io.emit('message', generateMessage(user.username, message))
         callback()
       })
     })
 
+
+//DISCARD
     socket.on('sendLocation', (coords, callback) => {
         const user = getUserByid(socket.id)
         io.to(user.room).emit('locationMessage', generateLocationMessage(user.username, `https://google.com/maps?q=${coords.latitude},${coords.longitude}`))
         callback()
     })
 
+//TODO:call this when we click log out button
     socket.on('disconnect', () => {
       database.collection('users').find(socket.id).toArray(function(err, chatRoomUser){
-    //    console.log(chatRoomUser)
         const user = removeUser(socket.id,chatRoomUser)
         if (user) {
-          // console.log(chatRoomUser)
-          // console.log("USER IS:")
-          // console.log(user)
+
           deleteListingByName(client,user)
-        //  console.log(chatRoomUser)
-            io.to(user.room).emit('message', generateMessage('Admin', `${user.username} has left!`))
+            io.emit('message', generateMessage('Admin', `${user.username} has left!`))
             database.collection('users').find(user.room).toArray(function(err, remainingChatRoomUser){
-//console.log(remainingChatRoomUser)
-            io.to(user.room).emit('roomData', {
+            io.emit('roomData', {
                 room: user.room,
                 users: remainingChatRoomUser
             })
@@ -163,13 +151,11 @@ io.on('connection', (socket) => {
     })
 })
 })
-server.listen(port, () => {
-    console.log(`Server is up on port ${port}!`)
-})
+
 
 async function deleteListingByName(client, nameOfListing) {
     result = await client.db("chatRoom").collection("users")
-         .deleteOne({ room : nameOfListing.room,username : nameOfListing.username});
+         .deleteOne({username : nameOfListing.username});
     console.log(`${result.deletedCount} document(s) was/were deleted.`);
 }
 // //keep rendering message as it is but when a new user join use mongodb backup to populate older messages and if all ppl leave the group delete the entry from mongo db
@@ -185,8 +171,9 @@ async function deleteListingByName(client, nameOfListing) {
 //     console.log(`addedChat message to db.`);
 // }
 
-async function retrieveOldMessages(client,roomName){
+async function retrieveOldMessages(client,existingUser){
   console.log("HELLO FROM THE OTHER SIDES")
-  allMessages =  await client.db("chatRoom").collection("messages").find({room : roomName}).toArray()
+//  TODO:  compare time between current login and original login to fetch all the chat
+  allMessages =  await client.db("chatRoom").collection("messages").toArray()
   return allMessages;
 }

@@ -13,7 +13,7 @@ const locationMessageTemplate = document.querySelector('#location-message-templa
 const sidebarTemplate = document.querySelector('#sidebar-template').innerHTML
 
 // Options
-const { username, room } = Qs.parse(location.search, { ignoreQueryPrefix: true })
+const { username, password } = Qs.parse(location.search, { ignoreQueryPrefix: true })
 
 const autoscroll = () => {
     // New message element
@@ -109,12 +109,15 @@ $sendLocationButton.addEventListener('click', () => {
     })
 })
 
-socket.emit('join', { username, room }, (error) => {
+socket.emit('join', { username, password }, (error,chatRoomMessages2) => {
     if (error) {
       console.log("error")
       console.log(error)
-
-      //  alert(error)
-      //  location.href = '/'
+       alert(error)
+       location.href = '/'
     }
+    if(chatRoomMessages2){
+      console.log("FOUND MESSAGE")
+    }
+
 })

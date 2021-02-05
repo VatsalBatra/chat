@@ -2,20 +2,23 @@ const users = []
 var MongoClient = require('mongodb').MongoClient;
 const  mongoose  = require("mongoose");
 mongoose.Promise  = require("bluebird");
-const  url  =  "mongodb://localhost:27017/chat";
+const  url  =  "mongodb://localhost:27017/chatRoom";
 //const  connect  =  mongoose.connect(url, { useNewUrlParser: true, seUnifiedTopology: true });
 var user = new mongoose.Schema({
  username: String,
- room: String,
+ password: String, //TODO :MAKE THIS HIDDEN >>>>>GOOGLE IT
+ joinedOn :String,
  id:String
-});
 
-var RoomMsg = new mongoose.Schema({
-  username:String,
-  room:String,
-  message:String,
-//  createdOn:String
+});
+var chat = new mongoose.Schema({
+  id:String,
+  msgString:String,
+  username : String,
+  createdAt : String
+  //createdOn:String
 })
+
 // let UserBase = mongoose.model("User", user);
 
 //add User
@@ -31,15 +34,15 @@ const removeUser = ((id,chatRoomUsers)=>{
     return toBeRomvedUser;
   }
 })
-const addRoomMsg = ({username,message,room})=>{
-  if(username!=null && message!=null && room!=null){
- const roomMessage = {username,message,room}
+const addRoomMsg = ({username,message})=>{
+  if(username!=null && message!=null){
+ const roomMessage = {username,message}
     return{
       roomMessage
     }
   }
 }
-const addUser = ({id,chatRoomUser, username, room}) => {
+const addUser = ({id,chatRoomUser, username, password}) => {
     // Clean the data
     // username = username.trim().toLowerCase();
     // room = room.trim().toLowerCase();
@@ -47,19 +50,36 @@ const addUser = ({id,chatRoomUser, username, room}) => {
     // console.log(chatRoomUser)
     // console.log("HEELP2313")
 
-  if(!username ||!room){
-    return{
-      error:"empty username / room" //TODO : WRONG  CONDITION
-    }
-  }
+  // if(!username ||!password){
+  //   return{
+  //     error:"empty username / passoword" //TODO : WRONG  CONDITION
+  //   }
+  // }
+
 if(chatRoomUser!=null){
-  const exsitingRoom = chatRoomUser.find((user)=>{
-    return user.room === room && user.username === username})
-  if(exsitingRoom){
+  console.log(username)
+  console.log(password)
+  const exsitingUser = chatRoomUser.find((user)=>{
+    console.log(user)
+    return user.password === password && user.username === username})
+  if(exsitingUser){
     return {
-      error:"Already present user/room"
+      exsitingUser:"Already present user/room"
     }
   }
+
+  const wrongPassword = chatRoomUser.find((user)=>{
+    if(user.username === username){
+    console.log(user.password)
+    console.log(password)
+  }
+    return user.username === username && user.password != password})
+  if(wrongPassword){
+    return {
+      error:"Wrong Password"
+    }
+  }
+
 }
 //   const checkDataBase = MongoClient.connect(url,(err, client)=> {
 // if (err) throw err;
@@ -74,9 +94,11 @@ if(chatRoomUser!=null){
 // return hello;
 // })
 
- const user = {id,username,room}
+ const newUser = {id :id,username:username,password:password,joinedOn:"hello"}
+
+ console.log(newUser)
  return{
-   user
+   newUser
  }
 }
 
@@ -121,3 +143,23 @@ module.exports={
 // console.log(getUserByid(26))
 //
 // console.log(users)
+
+
+// var Msgobj = {
+//   id:22,
+//   username:"vatsal",
+//   msgString:"hello",
+//   joinedOn : "HELLO"
+// }
+// var obj = {
+//   id:22,
+//   username:"vatsal",
+//   password:"hello",
+//   joinedOn : "HELLO"
+// }
+//
+// // let  chatMessageString  =  new MessageBase(Msgobj );
+// // chatMessageString.save();
+// let  chatMessage  =  new UserBase({id : obj.id,username :obj.username,password : obj.password,joinedOn : obj.joinedOn});
+// console.log(chatMessage)
+//      chatMessage.save();
